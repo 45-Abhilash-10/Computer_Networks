@@ -1,0 +1,7 @@
+experiment_id,trial,routing_mode,failure_type,failed_link,failure_time,traffic_rate,duration,packets_sent,packets_received,packets_lost,packet_loss_pct,pdr_pct,avg_delay,throughput_kbps,detection_time,reroute_time,recovery_time
+EXP_SELF_HEALING,1,self_healing,LINK_FAILURE,S2-S3,10.0,5.0,30.0,138,125,13,9.42,90.58,2.328,34.13,1.0,0.05,1.05
+EXP_STATIC_BASELINE,1,static,LINK_FAILURE,S2-S3,10.0,5.0,30.0,146,43,103,70.55,29.45,2.0,11.74,1.0,0.0,0.0
+EXP_SELF_HEALING,2,self_healing,LINK_FAILURE,S2-S3,10.0,5.0,30.0,138,125,13,9.42,90.58,2.328,34.13,1.0,0.05,1.05
+EXP_STATIC_BASELINE,2,static,LINK_FAILURE,S2-S3,10.0,5.0,30.0,146,43,103,70.55,29.45,2.0,11.74,1.0,0.0,0.0
+EXP_SELF_HEALING,3,self_healing,LINK_FAILURE,S2-S3,10.0,5.0,30.0,138,125,13,9.42,90.58,2.328,34.13,1.0,0.05,1.05
+EXP_STATIC_BASELINE,3,static,LINK_FAILURE,S2-S3,10.0,5.0,30.0,146,43,103,70.55,29.45,2.0,11.74,1.0,0.0,0.0

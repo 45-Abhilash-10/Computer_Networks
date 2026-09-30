@@ -1,0 +1,12 @@
+Metric,Static Baseline,Self-Healing SDN
+Routing Mode,Static (No Recovery),Autonomous Dijkstra Reroute
+Packets Sent,146,138
+Packets Received,43,125
+Packets Lost,103,13
+Packet Loss (%),70.55,9.42
+Packet Delivery Ratio (%),29.45,90.58
+Average Delay (units),2.0,2.328
+Throughput (kbps),11.74,34.13
+Detection Delay (units),N/A,1.0
+Reroute Delay (units),N/A,0.05
+Total Recovery Time (units),Failed / Never,1.05

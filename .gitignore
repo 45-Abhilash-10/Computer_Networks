@@ -1,0 +1,47 @@
+# python stuff
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.so
+
+# virtual env — don't commit this
+venv/
+env/
+.venv/
+.env/
+
+# packaging
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# jupyter
+.ipynb_checkpoints/
+
+# testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# streamlit cache
+.streamlit/
+
+# misc
+*.log
+*.bak
+*.tmp
