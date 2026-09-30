@@ -296,3 +296,253 @@ def save_all_experiment_plots(time_series_df: pd.DataFrame, output_dir: Path, fa
     plt.tight_layout()
     plt.savefig(output_dir / "packet_trajectory.png", dpi=300)
     plt.close()
+
+
+def create_noc_topology_fig(
+    topology_manager: TopologyManager,
+    active_route: Optional[List[str]] = None,
+    failed_link: Optional[Tuple[str, str]] = None,
+    height: int = 250,
+) -> go.Figure:
+    """
+    Ultra-compact, high-contrast 2D topology figure specifically optimized
+    for single-screen NOC operations dashboards.
+    """
+    pos = topology_manager.get_node_positions()
+    graph = topology_manager.get_graph()
+
+    route_edges = set()
+    route_nodes = set(active_route) if active_route else set()
+    if active_route and len(active_route) > 1:
+        for i in range(len(active_route) - 1):
+            route_edges.add(tuple(sorted((active_route[i], active_route[i + 1]))))
+
+    failed_pair = tuple(sorted(failed_link)) if failed_link else None
+
+    fig = go.Figure()
+
+    # Draw Edges
+    for u, v, data in graph.edges(data=True):
+        x0, y0 = pos[u]
+        x1, y1 = pos[v]
+        edge_pair = tuple(sorted((u, v)))
+        status = data.get("status", "UP")
+
+        if edge_pair == failed_pair or status == "DOWN":
+            line_color = "#ef4444"  # Red
+            line_width = 3.5
+            line_dash = "dash"
+            hover_text = f"<b>CRITICAL FAULT: {u} ──X── {v}</b><br>Status: SEVERED (DOWN)"
+        elif edge_pair in route_edges:
+            line_color = "#10b981"  # Emerald Green
+            line_width = 4.5
+            line_dash = "solid"
+            hover_text = f"<b>ACTIVE PATH: {u} ──> {v}</b><br>Status: FORWARDING"
+        else:
+            line_color = "#334155"  # Slate Gray
+            line_width = 2.0
+            line_dash = "solid"
+            hover_text = f"Link: {u} ── {v}<br>Status: {status}"
+
+        fig.add_trace(
+            go.Scatter(
+                x=[x0, x1],
+                y=[y0, y1],
+                mode="lines",
+                line=dict(color=line_color, width=line_width, dash=line_dash),
+                hoverinfo="text",
+                text=hover_text,
+                showlegend=False,
+            )
+        )
+
+    # Draw Nodes
+    host_x, host_y, host_names = [], [], []
+    switch_x, switch_y, switch_names, switch_colors, switch_borders = [], [], [], [], []
+
+    for node, data in graph.nodes(data=True):
+        x, y = pos[node]
+        node_type = data.get("type", "switch")
+        is_in_route = node in route_nodes
+
+        if node_type == "host":
+            host_x.append(x)
+            host_y.append(y)
+            host_names.append(node)
+        else:
+            switch_x.append(x)
+            switch_y.append(y)
+            switch_names.append(node)
+            if is_in_route:
+                switch_colors.append("#1e293b")
+                switch_borders.append("#10b981")  # Emerald border
+            else:
+                switch_colors.append("#0f172a")
+                switch_borders.append("#475569")  # Slate border
+
+    # Switches (Circles)
+    fig.add_trace(
+        go.Scatter(
+            x=switch_x,
+            y=switch_y,
+            mode="markers+text",
+            marker=dict(
+                symbol="circle",
+                size=32,
+                color=switch_colors,
+                line=dict(color=switch_borders, width=2.5),
+            ),
+            text=switch_names,
+            textposition="middle center",
+            textfont=dict(color="#f8fafc", size=11, family="JetBrains Mono, monospace"),
+            hoverinfo="text",
+            hovertext=[f"SDN Switch: {n}" for n in switch_names],
+            showlegend=False,
+        )
+    )
+
+    # Hosts (Squares)
+    fig.add_trace(
+        go.Scatter(
+            x=host_x,
+            y=host_y,
+            mode="markers+text",
+            marker=dict(
+                symbol="square",
+                size=28,
+                color="#0369a1",
+                line=dict(color="#38bdf8", width=2),
+            ),
+            text=host_names,
+            textposition="middle center",
+            textfont=dict(color="#ffffff", size=11, family="JetBrains Mono, monospace"),
+            hoverinfo="text",
+            hovertext=[f"Host: {n}" for n in host_names],
+            showlegend=False,
+        )
+    )
+
+    # Midpoint 'X' for failed link
+    if failed_pair:
+        u, v = failed_pair
+        if u in pos and v in pos:
+            mx = (pos[u][0] + pos[v][0]) / 2.0
+            my = (pos[u][1] + pos[v][1]) / 2.0
+            fig.add_trace(
+                go.Scatter(
+                    x=[mx],
+                    y=[my],
+                    mode="markers+text",
+                    marker=dict(symbol="x", size=18, color="#ef4444", line=dict(width=3, color="#ffffff")),
+                    text=["FAULT"],
+                    textposition="top center",
+                    textfont=dict(color="#ef4444", size=9, family="Inter, sans-serif"),
+                    hoverinfo="text",
+                    hovertext=f"Physical Fault: {u} ──X── {v}",
+                    showlegend=False,
+                )
+            )
+
+    fig.update_layout(
+        showlegend=False,
+        hovermode="closest",
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        paper_bgcolor="#0f172a",
+        plot_bgcolor="#0f172a",
+        margin=dict(l=10, r=10, t=10, b=10),
+        height=height,
+    )
+    return fig
+
+
+def create_noc_performance_fig(
+    time_series_df: pd.DataFrame,
+    failure_time: float,
+    recovery_time: Optional[float] = None,
+    height: int = 125,
+) -> go.Figure:
+    """
+    Compact multi-line/area timeline chart showing throughput/PDR across
+    Before, Failure, and Recovery intervals.
+    """
+    fig = go.Figure()
+
+    if not time_series_df.empty:
+        # Delivered Area (Green)
+        fig.add_trace(
+            go.Scatter(
+                x=time_series_df["time"],
+                y=time_series_df["delivered"],
+                mode="lines",
+                name="Delivered",
+                line=dict(color="#10b981", width=2),
+                fill="tozeroy",
+                fillcolor="rgba(16, 185, 129, 0.15)",
+            )
+        )
+        # Dropped Area (Red)
+        fig.add_trace(
+            go.Scatter(
+                x=time_series_df["time"],
+                y=time_series_df["dropped"],
+                mode="lines",
+                name="Dropped",
+                line=dict(color="#ef4444", width=2),
+                fill="tozeroy",
+                fillcolor="rgba(239, 68, 68, 0.25)",
+            )
+        )
+
+    # Vertical Fault and Recovery lines
+    fig.add_vline(
+        x=failure_time,
+        line_width=1.5,
+        line_dash="dash",
+        line_color="#ef4444",
+        annotation_text="FAULT",
+        annotation_position="top left",
+        annotation_font=dict(color="#ef4444", size=9),
+    )
+
+    if recovery_time is not None:
+        fig.add_vline(
+            x=recovery_time,
+            line_width=1.5,
+            line_dash="dash",
+            line_color="#10b981",
+            annotation_text="HEALED",
+            annotation_position="top right",
+            annotation_font=dict(color="#10b981", size=9),
+        )
+
+    fig.update_layout(
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(color="#94a3b8", size=9),
+        ),
+        xaxis=dict(
+            title="",
+            showgrid=True,
+            gridcolor="rgba(51, 65, 85, 0.3)",
+            color="#64748b",
+            tickfont=dict(size=9),
+        ),
+        yaxis=dict(
+            title="",
+            showgrid=True,
+            gridcolor="rgba(51, 65, 85, 0.3)",
+            color="#64748b",
+            tickfont=dict(size=9),
+        ),
+        paper_bgcolor="#0f172a",
+        plot_bgcolor="#0f172a",
+        margin=dict(l=25, r=10, t=10, b=20),
+        height=height,
+    )
+    return fig
