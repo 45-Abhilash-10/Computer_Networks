@@ -333,14 +333,14 @@ def create_noc_topology_fig(
         switch_border = "#b8a3c7"
         host_color = "#a084b3"
     else:
-        bg_color = "#ffffff"
-        inactive_color = "#dccad0"
-        active_color = "#8a6b9e"      # Deepened bottom swatch for crisp contrast
-        failed_color = "#e49678"      # Terracotta
-        text_color = "#2e2137"
-        switch_fill = "#8a6b9e"
-        switch_border = "#745687"
-        host_color = "#685f42"       # Olive brown from swatch 1
+        bg_color = "#f4f8fd"         # Lightest shade of blue
+        inactive_color = "#c8d8e8"   # Cool soft slate-blue
+        active_color = "#8a6b9e"     # Deepened bottom swatch (Lilac)
+        failed_color = "#e49678"     # Terracotta
+        text_color = "#1e293b"       # Deep slate navy
+        switch_fill = "#8a6b9e"      # Lilac
+        switch_border = "#6e4f84"
+        host_color = "#47617d"       # Steel slate blue
 
     fig = go.Figure()
 
@@ -500,13 +500,13 @@ def create_noc_performance_fig(
         drop_fill = "rgba(228, 150, 120, 0.3)"
         text_color = "#9e8ba8"
     else:
-        bg_color = "#ffffff"
-        grid_color = "rgba(220, 202, 208, 0.5)"
+        bg_color = "#f4f8fd"         # Lightest shade of blue
+        grid_color = "rgba(180, 205, 230, 0.45)"
         deliv_color = "#8a6b9e"      # Bottom color (contrast)
         deliv_fill = "rgba(184, 163, 199, 0.35)"
         drop_color = "#e49678"       # Terracotta
         drop_fill = "rgba(228, 150, 120, 0.3)"
-        text_color = "#766482"
+        text_color = "#5c728e"
 
     if not time_series_df.empty:
         # Delivered Area (The Bottom Palette Color)

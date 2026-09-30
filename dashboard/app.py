@@ -39,8 +39,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 2. Ultra-Compact High-Contrast NOC CSS Styled with User's Custom Palette
-# Palette: #FBEFEF (Canvas), #FFFFFF (Cards), #8A6B9E / #B8A3C7 (Bottom Lilac Accent), #E49678 (Terracotta Fault)
+# 2. Ultra-Compact NOC CSS with Lightest Shade of Blue (#EBF3FA Canvas, #F4F8FD Cards) & Lilac Accent
 st.markdown(
     """
     <style>
@@ -48,8 +47,8 @@ st.markdown(
 
     html, body, [class*="css"], .stApp {
         font-family: 'Inter', -apple-system, sans-serif !important;
-        background-color: #fbefef !important;
-        color: #2e2137 !important;
+        background-color: #ebf3fa !important;
+        color: #1e293b !important;
     }
 
     /* Remove default Streamlit whitespace */
@@ -65,12 +64,12 @@ st.markdown(
         max-width: 100% !important;
     }
 
-    /* Compact NOC Card Containers */
+    /* Compact NOC Card Containers (Lightest Blue Surfaces) */
     .noc-box {
-        background: #ffffff;
-        border: 1px solid #ead8de;
+        background: #f4f8fd;
+        border: 1px solid #d2e3f2;
         border-radius: 6px;
-        box-shadow: 0 1px 3px rgba(138, 107, 158, 0.08);
+        box-shadow: 0 1px 3px rgba(35, 75, 120, 0.08);
         padding: 7px 12px;
         margin-bottom: 5px;
     }
@@ -89,7 +88,7 @@ st.markdown(
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
-        color: #6c557b;
+        color: #384c66;
         margin-bottom: 4px;
         display: flex;
         justify-content: space-between;
@@ -98,17 +97,17 @@ st.markdown(
 
     /* KPI Cards */
     .kpi-card {
-        background: #ffffff;
-        border: 1px solid #ead8de;
+        background: #f4f8fd;
+        border: 1px solid #d2e3f2;
         border-radius: 6px;
-        box-shadow: 0 1px 3px rgba(138, 107, 158, 0.08);
+        box-shadow: 0 1px 3px rgba(35, 75, 120, 0.08);
         padding: 6px 10px;
         text-align: left;
     }
     .kpi-label {
         font-size: 10px;
         font-weight: 600;
-        color: #766482;
+        color: #5c728e;
         letter-spacing: 0.05em;
         text-transform: uppercase;
         margin-bottom: 1px;
@@ -122,7 +121,7 @@ st.markdown(
     }
     .kpi-sub {
         font-size: 10px;
-        color: #8e7e98;
+        color: #7b8ea5;
         margin-top: 1px;
     }
 
@@ -158,7 +157,7 @@ st.markdown(
         letter-spacing: 0.04em;
     }
     .badge-blue {
-        background: rgba(184, 163, 199, 0.25);
+        background: rgba(184, 163, 199, 0.22);
         color: #5d3e73;
         border: 1px solid #b8a3c7;
         padding: 2px 7px;
@@ -171,30 +170,30 @@ st.markdown(
     .mono-route {
         font-family: 'JetBrains Mono', monospace;
         font-size: 11px;
-        color: #5d3e73;
-        background: #faf4f6;
-        border: 1px solid #ead8de;
+        color: #4b365e;
+        background: #eaf2fa;
+        border: 1px solid #cfe0f0;
         padding: 5px 8px;
         border-radius: 4px;
         margin-top: 2px;
         margin-bottom: 4px;
     }
 
-    /* Primary and Secondary Button Overrides (Lilac Accent) */
+    /* Primary and Secondary Button Overrides (Lilac Accent & Light Blue) */
     .stButton > button {
         border-radius: 4px !important;
         font-size: 11px !important;
         font-weight: 700 !important;
         height: 32px !important;
         letter-spacing: 0.02em !important;
-        border: 1px solid #cdbad9 !important;
-        background-color: #ffffff !important;
-        color: #5d486d !important;
+        border: 1px solid #c2d8ed !important;
+        background-color: #f0f6fc !important;
+        color: #3b5573 !important;
     }
     .stButton > button:hover {
-        background-color: #f7eff7 !important;
+        background-color: #e2effa !important;
         border-color: #8a6b9e !important;
-        color: #2e2137 !important;
+        color: #1e293b !important;
     }
     .stButton > button[kind="primary"] {
         background-color: #8a6b9e !important;
@@ -207,17 +206,17 @@ st.markdown(
         border-color: #5d3e73 !important;
     }
 
-    /* Input & Selectbox Overrides */
+    /* Input & Selectbox Overrides (Crisp Light Blue-White) */
     div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
-        background-color: #ffffff !important;
-        border: 1px solid #dccad0 !important;
-        color: #2e2137 !important;
+        background-color: #f8fbfe !important;
+        border: 1px solid #cfe0f0 !important;
+        color: #1e293b !important;
         border-radius: 4px !important;
         min-height: 32px !important;
         height: 32px !important;
     }
     div[data-baseweb="select"] span, div[data-baseweb="input"] input {
-        color: #2e2137 !important;
+        color: #1e293b !important;
         font-size: 12px !important;
     }
     </style>
@@ -267,8 +266,8 @@ with h_left:
         """
         <div style="display: flex; align-items: baseline; gap: 12px;">
             <span class="noc-header-tag">NETWORK // SDN CONTROL CENTER</span>
-            <span style="font-size: 18px; font-weight: 800; color: #2e2137; letter-spacing: -0.01em;">INTELLIGENT SELF-HEALING SDN NETWORK</span>
-            <span style="font-size: 11px; color: #766482;">Failure Detection • Dynamic Routing • Automated Recovery</span>
+            <span style="font-size: 18px; font-weight: 800; color: #1e293b; letter-spacing: -0.01em;">INTELLIGENT SELF-HEALING SDN NETWORK</span>
+            <span style="font-size: 11px; color: #5c728e;">Failure Detection • Dynamic Routing • Automated Recovery</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -325,7 +324,7 @@ with k4:
         f"""
         <div class="kpi-card">
             <div class="kpi-label">Data Throughput</div>
-            <div class="kpi-val" style="color: #2e2137;">{metrics['throughput_kbps']:.1f} <span style="font-size:12px;">kbps</span></div>
+            <div class="kpi-val" style="color: #1e293b;">{metrics['throughput_kbps']:.1f} <span style="font-size:12px;">kbps</span></div>
             <div class="kpi-sub">{metrics['throughput_pps']:.2f} packets / unit</div>
         </div>
         """,
@@ -333,7 +332,7 @@ with k4:
     )
 with k5:
     rec_time_str = f"{metrics['recovery_time']:.2f} s" if app_mode == "RECOVERED" else ("Failed" if app_mode == "FAULT_ACTIVE" else "N/A")
-    rec_val_color = "#8a6b9e" if app_mode == "RECOVERED" else ("#e49678" if app_mode == "FAULT_ACTIVE" else "#766482")
+    rec_val_color = "#8a6b9e" if app_mode == "RECOVERED" else ("#e49678" if app_mode == "FAULT_ACTIVE" else "#5c728e")
     sub_text = f"Det: {metrics['detection_time']:.1f}s | Reroute: {metrics['reroute_time']:.2f}s" if app_mode == "RECOVERED" else "No Failure Active"
     st.markdown(
         f"""
@@ -359,7 +358,7 @@ with col_left:
         <div class="noc-box" style="margin-bottom: 2px;">
             <div class="noc-title">
                 <span>NETWORK TOPOLOGY // SDN DATA PLANE</span>
-                <span style="font-size: 10px; color: #766482;">H1 ── S1 ── [S2 / S4] ── S3 ── H2</span>
+                <span style="font-size: 10px; color: #5c728e;">H1 ── S1 ── [S2 / S4] ── S3 ── H2</span>
             </div>
         """,
         unsafe_allow_html=True,
@@ -377,11 +376,11 @@ with col_left:
     # Compact Legend
     st.markdown(
         """
-        <div style="display: flex; gap: 14px; font-size: 10px; color: #766482; justify-content: center; margin-top: -6px; margin-bottom: 4px;">
-            <span><span style="color:#685f42;">■</span> Host</span>
+        <div style="display: flex; gap: 14px; font-size: 10px; color: #5c728e; justify-content: center; margin-top: -6px; margin-bottom: 4px;">
+            <span><span style="color:#47617d;">■</span> Host</span>
             <span><span style="color:#b8a3c7;">●</span> Switch</span>
             <span><span style="color:#8a6b9e; font-weight:bold;">━</span> Active Route</span>
-            <span><span style="color:#dccad0; font-weight:bold;">━</span> Standby Link</span>
+            <span><span style="color:#c8d8e8; font-weight:bold;">━</span> Standby Link</span>
             <span><span style="color:#e49678; font-weight:bold;">━✖</span> Failed Link</span>
         </div>
         </div>
@@ -399,24 +398,24 @@ with col_left:
         rec_color = "#8a6b9e"
     elif app_mode == "FAULT_ACTIVE":
         primary_badge = "<span class='badge-fault'>✖ BROKEN LINK (DROPPING)</span>"
-        rec_badge = "<span style='color:#766482; font-size:11px;'>◌ UNRECOVERED</span>"
-        rec_color = "#766482"
+        rec_badge = "<span style='color:#5c728e; font-size:11px;'>◌ UNRECOVERED</span>"
+        rec_color = "#5c728e"
     else:
         primary_badge = "<span class='badge-healthy'>● ACTIVE FORWARDING</span>"
-        rec_badge = "<span style='color:#766482; font-size:11px;'>◌ STANDBY PATH</span>"
-        rec_color = "#766482"
+        rec_badge = "<span style='color:#5c728e; font-size:11px;'>◌ STANDBY PATH</span>"
+        rec_color = "#5c728e"
 
     st.markdown(
         f"""
         <div class="noc-box">
             <div class="noc-title">ROUTE / RECOVERY STATUS</div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 10px; color: #766482; font-weight: 600;">PRIMARY ROUTE (DIJKSTRA)</span>
+                <span style="font-size: 10px; color: #5c728e; font-weight: 600;">PRIMARY ROUTE (DIJKSTRA)</span>
                 {primary_badge}
             </div>
             <div class="mono-route" style="color: {'#e49678' if app_mode in ('FAULT_ACTIVE', 'RECOVERED') else '#8a6b9e'};">{init_str}</div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-                <span style="font-size: 10px; color: #766482; font-weight: 600;">RECOVERED ALTERNATE ROUTE</span>
+                <span style="font-size: 10px; color: #5c728e; font-weight: 600;">RECOVERED ALTERNATE ROUTE</span>
                 {rec_badge}
             </div>
             <div class="mono-route" style="color: {rec_color}; font-weight: {'700' if app_mode == 'RECOVERED' else '400'};">{rec_str}</div>
@@ -439,12 +438,12 @@ with col_right:
                 <span class="badge-blue">CONTROLLER ● ONLINE</span>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 11px;">
-                <div><span style="color:#766482;">Network Health:</span> <b style="color:{'#8a6b9e' if app_mode != 'FAULT_ACTIVE' else '#e49678'};">{'HEALTHY' if app_mode == 'HEALTHY' else ('DEGRADED' if app_mode == 'FAULT_ACTIVE' else 'RECOVERED')}</b></div>
-                <div><span style="color:#766482;">Active Flow:</span> <b style="color:#8a6b9e;">H1 → H2</b></div>
-                <div><span style="color:#766482;">Active Links:</span> <b style="color:#2e2137;">{active_count} / {links_total}</b></div>
-                <div><span style="color:#766482;">Failed Links:</span> <b style="color:{'#e49678' if failed_count > 0 else '#8a6b9e'};">{failed_count}</b></div>
-                <div><span style="color:#766482;">Packets Processed:</span> <b style="color:#2e2137;">{metrics['packets_sent']}</b></div>
-                <div><span style="color:#766482;">Control Mode:</span> <b style="color:#2e2137;">{sim_res.config.routing_mode.upper()}</b></div>
+                <div><span style="color:#5c728e;">Network Health:</span> <b style="color:{'#8a6b9e' if app_mode != 'FAULT_ACTIVE' else '#e49678'};">{'HEALTHY' if app_mode == 'HEALTHY' else ('DEGRADED' if app_mode == 'FAULT_ACTIVE' else 'RECOVERED')}</b></div>
+                <div><span style="color:#5c728e;">Active Flow:</span> <b style="color:#8a6b9e;">H1 → H2</b></div>
+                <div><span style="color:#5c728e;">Active Links:</span> <b style="color:#1e293b;">{active_count} / {links_total}</b></div>
+                <div><span style="color:#5c728e;">Failed Links:</span> <b style="color:{'#e49678' if failed_count > 0 else '#8a6b9e'};">{failed_count}</b></div>
+                <div><span style="color:#5c728e;">Packets Processed:</span> <b style="color:#1e293b;">{metrics['packets_sent']}</b></div>
+                <div><span style="color:#5c728e;">Control Mode:</span> <b style="color:#1e293b;">{sim_res.config.routing_mode.upper()}</b></div>
             </div>
         </div>
         """,
@@ -458,10 +457,10 @@ with col_right:
         f_status_clr = "#8a6b9e" if app_mode == "RECOVERED" else "#e49678"
         f_details = (
             f'<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; font-size: 11px; margin-top: 4px;">'
-            f'<div><span style="color:#766482;">Failure Injected:</span> <b style="color:#2e2137;">{sim_res.config.failure_time:.1f} s</b></div>'
-            f'<div><span style="color:#766482;">Detection Time:</span> <b style="color:#2e2137;">{rec.get("detection_time", 11.0):.1f} s</b></div>'
-            f'<div><span style="color:#766482;">Reroute Time:</span> <b style="color:#2e2137;">{rec.get("reroute_time", 11.05):.2f} s</b></div>'
-            f'<div><span style="color:#766482;">Recovery Latency:</span> <b style="color:#8a6b9e;">{metrics["recovery_time"]:.2f} s</b></div>'
+            f'<div><span style="color:#5c728e;">Failure Injected:</span> <b style="color:#1e293b;">{sim_res.config.failure_time:.1f} s</b></div>'
+            f'<div><span style="color:#5c728e;">Detection Time:</span> <b style="color:#1e293b;">{rec.get("detection_time", 11.0):.1f} s</b></div>'
+            f'<div><span style="color:#5c728e;">Reroute Time:</span> <b style="color:#1e293b;">{rec.get("reroute_time", 11.05):.2f} s</b></div>'
+            f'<div><span style="color:#5c728e;">Recovery Latency:</span> <b style="color:#8a6b9e;">{metrics["recovery_time"]:.2f} s</b></div>'
             f'</div>'
             f'<div style="font-size: 10px; color: {f_status_clr}; margin-top: 4px;">'
             f'● <b>Status:</b> {f_status_txt}'
@@ -470,7 +469,7 @@ with col_right:
     else:
         f_title = "<span class='badge-healthy'>● NO ACTIVE FAILURE</span>"
         f_details = (
-            '<div style="font-size: 11px; color: #766482; margin-top: 4px;">'
+            '<div style="font-size: 11px; color: #5c728e; margin-top: 4px;">'
             'Network operating under normal baseline parameters. All 7 physical links are healthy and passing traffic.'
             '</div>'
         )
