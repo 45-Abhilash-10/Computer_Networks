@@ -3,6 +3,8 @@ analytics_engine.py - Visualizations and comparative analytics for SDN simulatio
 
 Builds interactive Plotly diagrams for the Streamlit dashboard and saves
 publication-quality Matplotlib figures for reporting and project evaluation.
+Features modern Cyber-NOC dark mode aesthetics, dynamic graph rendering, and
+instantaneous network state visualization.
 """
 
 from typing import Dict, List, Optional, Tuple, Any
@@ -20,18 +22,20 @@ def create_topology_plotly_fig(
     topology_manager: TopologyManager,
     active_route: Optional[List[str]] = None,
     failed_link: Optional[Tuple[str, str]] = None,
-    title: str = "SDN Topology State",
+    title: str = "SDN Network Fabric State",
+    dark_mode: bool = True,
 ) -> go.Figure:
     """
-    Renders an interactive 2D network graph in Plotly.
-    Distinguishes between Hosts and Switches, highlights active routing paths,
-    and visually flags failed links in red.
+    Renders an interactive high-contrast 2D network graph in Plotly.
+    Distinguishes between Hosts and Switches, dynamically traces active forwarding paths,
+    and visually flags severed links with glowing alert aesthetics.
     """
     pos = topology_manager.get_node_positions()
     graph = topology_manager.get_graph()
 
-    # Route edge set for quick lookup
+    # Route edge set for O(1) lookup
     route_edges = set()
+    route_nodes = set(active_route) if active_route else set()
     if active_route and len(active_route) > 1:
         for i in range(len(active_route) - 1):
             route_edges.add(tuple(sorted((active_route[i], active_route[i + 1]))))
@@ -39,6 +43,12 @@ def create_topology_plotly_fig(
     failed_pair = tuple(sorted(failed_link)) if failed_link else None
 
     fig = go.Figure()
+
+    bg_color = "#0b1120" if dark_mode else "#ffffff"
+    text_color = "#f8fafc" if dark_mode else "#0f172a"
+    inactive_link_color = "rgba(71, 85, 105, 0.45)" if dark_mode else "rgba(148, 163, 184, 0.6)"
+    active_link_color = "#10b981"  # Emerald green glow
+    failed_link_color = "#ef4444"  # Crimson alert
 
     # 1. Draw Links (Edges)
     for u, v, data in graph.edges(data=True):
@@ -48,23 +58,20 @@ def create_topology_plotly_fig(
         status = data.get("status", "UP")
 
         if edge_pair == failed_pair or status == "DOWN":
-            # Failed Link: Red dashed line
-            line_color = "#e74c3c"
-            line_width = 4
+            line_color = failed_link_color
+            line_width = 4.5
             line_dash = "dash"
-            hover_text = f"FAILED LINK: {u} <-> {v}<br>Status: DOWN"
+            hover_text = f"<b>CRITICAL FAULT: {u} ──X── {v}</b><br>Status: SEVERED (DOWN)<br>Packets: DROPPED"
         elif edge_pair in route_edges:
-            # Active Forwarding Route: Bright Green thick line
-            line_color = "#2ecc71"
-            line_width = 5
+            line_color = active_link_color
+            line_width = 5.5
             line_dash = "solid"
-            hover_text = f"ACTIVE ROUTE: {u} <-> {v}<br>Cost: {data.get('cost')}, Delay: {data.get('delay')} units"
+            hover_text = f"<b>ACTIVE PATH: {u} ──> {v}</b><br>Bandwidth: {data.get('bandwidth')} Mbps<br>Delay: {data.get('delay')} units"
         else:
-            # Normal Inactive Link: Slate gray
-            line_color = "#7f8c8d"
-            line_width = 2
+            line_color = inactive_link_color
+            line_width = 2.0
             line_dash = "solid"
-            hover_text = f"Link: {u} <-> {v}<br>Cost: {data.get('cost')}, Delay: {data.get('delay')} units"
+            hover_text = f"<b>Link: {u} ── {v}</b><br>Cost: {data.get('cost')}<br>Status: {status}"
 
         fig.add_trace(
             go.Scatter(
@@ -79,66 +86,118 @@ def create_topology_plotly_fig(
         )
 
     # 2. Draw Nodes (Hosts vs Switches)
-    host_x, host_y, host_names, host_hover = [], [], [], []
-    switch_x, switch_y, switch_names, switch_hover = [], [], [], []
+    host_x, host_y, host_names, host_hover, host_colors = [], [], [], [], []
+    switch_x, switch_y, switch_names, switch_hover, switch_colors, switch_borders = [], [], [], [], [], []
 
     for node, data in graph.nodes(data=True):
         x, y = pos[node]
         node_type = data.get("type", "switch")
         label = data.get("label", node)
+        is_in_route = node in route_nodes
 
         if node_type == "host":
             host_x.append(x)
             host_y.append(y)
             host_names.append(node)
-            host_hover.append(f"HOST: {node}<br>{label}")
+            host_hover.append(f"<b>END HOST: {node}</b><br>{label}<br>Role: Traffic Endpoint")
+            host_colors.append("#0284c7")  # Sky Blue
         else:
             switch_x.append(x)
             switch_y.append(y)
             switch_names.append(node)
-            switch_hover.append(f"SWITCH: {node}<br>{label}")
+            deg = graph.degree(node)
+            sw_status = "In Forwarding Route" if is_in_route else "Standby Switch"
+            switch_hover.append(f"<b>SDN SWITCH: {node}</b><br>{label}<br>Degree: {deg} ports<br>Status: {sw_status}")
 
-    # Hosts Trace (Blue Square)
+            if is_in_route:
+                switch_colors.append("#8b5cf6")  # Neon Violet
+                switch_borders.append("#10b981")  # Emerald border glow
+            else:
+                switch_colors.append("#6366f1")  # Indigo
+                switch_borders.append("#475569")  # Slate border
+
+    # Draw Switches
+    fig.add_trace(
+        go.Scatter(
+            x=switch_x,
+            y=switch_y,
+            mode="markers+text",
+            marker=dict(
+                symbol="circle",
+                size=38,
+                color=switch_colors,
+                line=dict(color=switch_borders, width=3),
+            ),
+            text=switch_names,
+            textposition="middle center",
+            textfont=dict(color="#ffffff", size=13, family="JetBrains Mono, monospace"),
+            hoverinfo="text",
+            hovertext=switch_hover,
+            name="SDN Switches",
+        )
+    )
+
+    # Draw End Hosts
     fig.add_trace(
         go.Scatter(
             x=host_x,
             y=host_y,
             mode="markers+text",
-            marker=dict(symbol="square", size=36, color="#3498db", line=dict(color="#2980b9", width=2)),
+            marker=dict(
+                symbol="square",
+                size=34,
+                color=host_colors,
+                line=dict(color="#38bdf8", width=2.5),
+            ),
             text=host_names,
             textposition="middle center",
-            textfont=dict(color="white", size=14, family="Arial Black"),
+            textfont=dict(color="#ffffff", size=13, family="JetBrains Mono, monospace"),
             hoverinfo="text",
             hovertext=host_hover,
             name="End Hosts",
         )
     )
 
-    # Switches Trace (Purple Circle)
-    fig.add_trace(
-        go.Scatter(
-            x=switch_x,
-            y=switch_y,
-            mode="markers+text",
-            marker=dict(symbol="circle", size=42, color="#9b59b6", line=dict(color="#8e44ad", width=2)),
-            text=switch_names,
-            textposition="middle center",
-            textfont=dict(color="white", size=14, family="Arial Black"),
-            hoverinfo="text",
-            hovertext=switch_hover,
-            name="OpenFlow Switches",
-        )
-    )
+    # If there is a failed link, place a glowing 'X' marker at the midpoint
+    if failed_pair:
+        u, v = failed_pair
+        if u in pos and v in pos:
+            mx = (pos[u][0] + pos[v][0]) / 2.0
+            my = (pos[u][1] + pos[v][1]) / 2.0
+            fig.add_trace(
+                go.Scatter(
+                    x=[mx],
+                    y=[my],
+                    mode="markers+text",
+                    marker=dict(symbol="x", size=22, color="#ef4444", line=dict(width=3, color="#ffffff")),
+                    text=["FAULT"],
+                    textposition="top center",
+                    textfont=dict(color="#ef4444", size=11, family="Inter, sans-serif"),
+                    hoverinfo="text",
+                    hovertext=f"Physical Fault Point: Link {u} ──X── {v}",
+                    name="Fault Point",
+                    showlegend=False,
+                )
+            )
 
     fig.update_layout(
-        title=dict(text=title, font=dict(size=16, color="#2c3e50")),
+        title=dict(text=title, font=dict(size=16, color=text_color, family="Inter, sans-serif")),
         showlegend=True,
         hovermode="closest",
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        plot_bgcolor="#f8f9fa",
-        margin=dict(l=20, r=20, t=50, b=20),
+        paper_bgcolor=bg_color,
+        plot_bgcolor=bg_color,
+        margin=dict(l=15, r=15, t=45, b=15),
         height=380,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(color=text_color, size=11),
+        ),
     )
 
     return fig
@@ -148,12 +207,14 @@ def create_time_series_plotly_fig(
     time_series_df: pd.DataFrame,
     failure_time: float,
     detection_time: Optional[float] = None,
-    title: str = "Packet Delivery & Loss Over Time",
+    title: str = "Packet Delivery & Loss Dynamics",
+    dark_mode: bool = True,
 ) -> go.Figure:
-    """
-    Renders an interactive time-series chart showing packets delivered vs dropped per time bin,
-    with explicit vertical annotation markers for Failure and Recovery.
-    """
+    """Renders cyber-themed time-series chart showing delivered vs dropped packets."""
+    bg_color = "#0b1120" if dark_mode else "#ffffff"
+    text_color = "#f8fafc" if dark_mode else "#0f172a"
+    grid_color = "rgba(51, 65, 85, 0.4)" if dark_mode else "#e2e8f0"
+
     fig = go.Figure()
 
     if not time_series_df.empty:
@@ -162,7 +223,7 @@ def create_time_series_plotly_fig(
                 x=time_series_df["time"],
                 y=time_series_df["delivered"],
                 name="Delivered Packets",
-                marker_color="#2ecc71",
+                marker_color="#10b981",
             )
         )
         fig.add_trace(
@@ -170,40 +231,48 @@ def create_time_series_plotly_fig(
                 x=time_series_df["time"],
                 y=time_series_df["dropped"],
                 name="Dropped Packets",
-                marker_color="#e74c3c",
+                marker_color="#ef4444",
             )
         )
 
-    # Failure Injection Vertical Line
     fig.add_vline(
         x=failure_time,
         line_width=2,
         line_dash="dash",
-        line_color="#e74c3c",
-        annotation_text="Fault Injected",
+        line_color="#ef4444",
+        annotation_text="Link Severed",
         annotation_position="top left",
+        annotation_font=dict(color="#ef4444", size=11),
     )
 
-    # Recovery Event Vertical Line
     if detection_time is not None:
         fig.add_vline(
             x=detection_time,
             line_width=2,
             line_dash="dash",
-            line_color="#27ae60",
-            annotation_text="Fault Detected / Rerouted",
+            line_color="#10b981",
+            annotation_text="Fault Rerouted",
             annotation_position="top right",
+            annotation_font=dict(color="#10b981", size=11),
         )
 
     fig.update_layout(
-        title=dict(text=title, font=dict(size=15)),
+        title=dict(text=title, font=dict(size=15, color=text_color, family="Inter, sans-serif")),
         barmode="group",
-        xaxis_title="Simulation Time (Units)",
-        yaxis_title="Packets per Interval",
-        plot_bgcolor="#ffffff",
-        margin=dict(l=40, r=20, t=50, b=40),
-        height=340,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        xaxis=dict(title="Simulation Time (Units)", color=text_color, gridcolor=grid_color),
+        yaxis=dict(title="Packets per Interval", color=text_color, gridcolor=grid_color),
+        paper_bgcolor=bg_color,
+        plot_bgcolor=bg_color,
+        margin=dict(l=35, r=15, t=45, b=35),
+        height=320,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(color=text_color, size=11),
+        ),
     )
     return fig
 
@@ -215,11 +284,10 @@ def save_all_experiment_plots(time_series_df: pd.DataFrame, output_dir: Path, fa
     if time_series_df.empty:
         return
 
-    # Plot 1: Delivered vs Dropped Packets
     plt.figure(figsize=(9, 4.5))
-    plt.bar(time_series_df["time"] - 0.2, time_series_df["delivered"], width=0.4, label="Delivered", color="#2ecc71")
-    plt.bar(time_series_df["time"] + 0.2, time_series_df["dropped"], width=0.4, label="Dropped", color="#e74c3c")
-    plt.axvline(x=failure_time, color="red", linestyle="--", linewidth=1.5, label="Failure Injected")
+    plt.bar(time_series_df["time"] - 0.2, time_series_df["delivered"], width=0.4, label="Delivered", color="#10b981")
+    plt.bar(time_series_df["time"] + 0.2, time_series_df["dropped"], width=0.4, label="Dropped", color="#ef4444")
+    plt.axvline(x=failure_time, color="#ef4444", linestyle="--", linewidth=1.5, label="Failure Injected")
     plt.xlabel("Simulation Time Units")
     plt.ylabel("Packet Count")
     plt.title("Traffic Trajectory Before, During, and After Link Failure")
@@ -227,18 +295,4 @@ def save_all_experiment_plots(time_series_df: pd.DataFrame, output_dir: Path, fa
     plt.grid(True, linestyle="--", alpha=0.5)
     plt.tight_layout()
     plt.savefig(output_dir / "packet_trajectory.png", dpi=300)
-    plt.close()
-
-    # Plot 2: PDR Over Time
-    plt.figure(figsize=(9, 4.5))
-    plt.plot(time_series_df["time"], time_series_df["pdr"], marker="o", color="#3498db", linewidth=2, label="PDR (%)")
-    plt.axvline(x=failure_time, color="red", linestyle="--", linewidth=1.5, label="Failure Injected")
-    plt.xlabel("Simulation Time Units")
-    plt.ylabel("Packet Delivery Ratio (%)")
-    plt.ylim(-5, 105)
-    plt.title("Packet Delivery Ratio (PDR) Dynamic Response")
-    plt.legend()
-    plt.grid(True, linestyle="--", alpha=0.5)
-    plt.tight_layout()
-    plt.savefig(output_dir / "pdr_response.png", dpi=300)
     plt.close()

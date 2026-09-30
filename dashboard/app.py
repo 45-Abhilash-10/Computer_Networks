@@ -1,16 +1,15 @@
 """
-app.py - Interactive Streamlit Dashboard for Intelligent Self-Healing SDN Network.
+app.py - Advanced Interactive Cyber-NOC Dashboard for Intelligent Self-Healing SDN.
 
-Provides comprehensive visual demonstration of:
-- Centralized SDN topology & active forwarding routes
-- Scheduled physical link failure injection
-- Explicit heartbeat-based failure detection
-- Dynamic Dijkstra route recalculation & flow installation
-- Before / During / After packet delivery trajectories
-- Static Baseline vs Self-Healing comparison
+Features:
+- Dynamic topology generation (Canonical, Spine-Leaf, Redundant Mesh, Chordal Ring)
+- Configurable switch counts (4 to 20 nodes) and arbitrary link failure targeting
+- Dynamic time-scrubber & playback animation showing packet transit, link cuts, and live rerouting
+- Real-time telemetry, baseline comparison, and interactive terminal event streaming
 """
 
 import sys
+import time
 from pathlib import Path
 
 # Add project root to sys.path
@@ -20,7 +19,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import numpy as np
 import plotly.graph_objects as go
 
 from src.config import SimulationConfig
@@ -34,231 +33,358 @@ from experiments.baseline import run_baseline_comparison
 
 # Streamlit Page Setup
 st.set_page_config(
-    page_title="Self-Healing SDN Simulation",
-    page_icon="🌐",
+    page_title="SDN Self-Healing NOC",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Custom Styling
+# Custom High-End Cyber-NOC Dark CSS Styling
 st.markdown(
     """
     <style>
-    .main-title { font-size: 2.2rem; font-weight: 800; color: #1e3a8a; margin-bottom: 0.2rem; }
-    .sub-title { font-size: 1.05rem; color: #4b5563; margin-bottom: 1.5rem; }
-    .metric-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
-    .badge-pass { background-color: #dcfce7; color: #15803d; font-weight: 600; padding: 4px 8px; border-radius: 4px; }
-    .badge-fail { background-color: #fee2e2; color: #b91c1c; font-weight: 600; padding: 4px 8px; border-radius: 4px; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .stApp {
+        background: radial-gradient(circle at 15% 15%, #0f172a 0%, #060813 100%);
+        color: #f1f5f9;
+    }
+
+    /* Glassmorphism Cards */
+    .noc-card {
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 16px 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        margin-bottom: 12px;
+    }
+
+    .noc-header {
+        font-size: 2.1rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.02em;
+        margin-bottom: 2px;
+    }
+
+    .noc-sub {
+        font-size: 0.95rem;
+        color: #94a3b8;
+        margin-bottom: 18px;
+    }
+
+    /* Metric Badges */
+    .status-badge-healthy {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        display: inline-block;
+    }
+
+    .status-badge-fault {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        display: inline-block;
+    }
+
+    .status-badge-rerouted {
+        background: rgba(56, 189, 248, 0.15);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        display: inline-block;
+    }
+
+    .route-box {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.88rem;
+        background: #090d16;
+        border: 1px solid #1e293b;
+        border-radius: 8px;
+        padding: 10px 14px;
+        color: #38bdf8;
+        margin-top: 6px;
+    }
+
+    /* Streamlit widget tweaks */
+    div[data-testid="stMetricValue"] {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        color: #f8fafc;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 
+def get_available_links_from_topo(tm: TopologyManager):
+    """Returns sorted list of link tuples for selectbox."""
+    return [tuple(sorted((u, v))) for u, v, _ in tm.get_all_links()]
+
+
 def main():
     # Header Banner
-    st.markdown("<div class='main-title'>🌐 Intelligent Self-Healing SDN Network</div>", unsafe_allow_html=True)
+    st.markdown("<div class='noc-header'>⚡ SDN Autonomous Self-Healing Operations Center</div>", unsafe_allow_html=True)
     st.markdown(
-        "<div class='sub-title'>Software-Based SDN Control-Plane Simulation, Explicit Fault Detection & Autonomous Dynamic Recovery</div>",
+        "<div class='noc-sub'>Dynamic Topology Architect • Discrete-Event Traffic Forwarding • Closed-Loop Fault Recovery</div>",
         unsafe_allow_html=True,
     )
 
-    # Sidebar: Simulation Controls
-    st.sidebar.header("⚙️ Simulation Controls")
+    # Sidebar: Dynamic Topology & Simulation Configuration
+    st.sidebar.markdown("### 🛠️ Topology Architect")
 
-    routing_mode = st.sidebar.selectbox(
-        "Routing Engine Mode",
-        options=["self_healing", "static"],
-        format_func=lambda x: "🟢 Self-Healing SDN (Dynamic Reroute)" if x == "self_healing" else "🔴 Static Routing (No Recovery)",
-        help="Select whether controller dynamically reroutes traffic upon failure or leaves stale paths active.",
+    topo_family = st.sidebar.selectbox(
+        "Network Topology Architecture",
+        options=["canonical", "spine_leaf", "mesh", "ring"],
+        format_func=lambda x: {
+            "canonical": "⚡ Canonical Benchmark (2 Hosts, 5 Switches)",
+            "spine_leaf": "☁️ Cloud Spine-Leaf Data Center Fabric",
+            "mesh": "🕸️ Scalable Redundant Mesh Network",
+            "ring": "🔄 Resilient Chordal Ring Fabric",
+        }[x],
+        help="Select standard benchmark or dynamically generate multi-switch cloud topologies.",
     )
 
-    sim_duration = st.sidebar.slider(
-        "Simulation Duration (units)",
-        min_value=15.0,
-        max_value=60.0,
-        value=30.0,
-        step=5.0,
-        help="Total discrete simulation time window.",
-    )
+    if topo_family == "canonical":
+        num_switches = 5
+        st.sidebar.caption("Canonical topology: 2 Hosts, 5 Switches, Dual-path diamond.")
+    else:
+        num_switches = st.sidebar.slider(
+            "Number of SDN Switches",
+            min_value=4,
+            max_value=16,
+            value=8 if topo_family != "spine_leaf" else 6,
+            step=1,
+            help="Dynamically scale the number of intermediate forwarding switches in the fabric.",
+        )
 
-    packet_rate = st.sidebar.slider(
-        "Traffic Generation Rate (pkts/unit)",
-        min_value=1.0,
-        max_value=15.0,
-        value=5.0,
-        step=1.0,
-        help="Number of packets generated by H1 per simulation time unit.",
-    )
-
-    failure_time = st.sidebar.slider(
-        "Failure Injection Time (unit)",
-        min_value=5.0,
-        max_value=sim_duration - 5.0,
-        value=10.0,
-        step=1.0,
-        help="Timestamp when the selected link is physically cut.",
-    )
-
-    heartbeat_interval = st.sidebar.slider(
-        "Heartbeat Detection Interval (units)",
-        min_value=0.5,
-        max_value=3.0,
-        value=1.0,
-        step=0.5,
-        help="Polling interval used by failure detector to observe link status.",
-    )
-
-    failed_link_choice = st.sidebar.selectbox(
-        "Target Link to Disrupt",
-        options=[("S2", "S3"), ("S1", "S2"), ("S4", "S5")],
-        format_func=lambda pair: f"Link ({pair[0]} <-> {pair[1]})",
-        help="Physical link severed during the failure event.",
-    )
+    # Initialize dynamic topology manager
+    tm = TopologyManager(topology_type=topo_family, num_switches=num_switches)
+    all_links = get_available_links_from_topo(tm)
 
     st.sidebar.markdown("---")
-    run_btn = st.sidebar.button("🚀 Run Simulation", type="primary", use_container_width=True)
-    compare_btn = st.sidebar.button("⚖️ Run Baseline vs Self-Healing Comparison", use_container_width=True)
+    st.sidebar.markdown("### 🎯 Fault & Traffic Target")
 
-    # Initialize Session State
-    if "sim_result" not in st.session_state:
-        # Run a default self-healing simulation initially
-        default_cfg = SimulationConfig(
-            simulation_duration=sim_duration,
-            packet_rate=packet_rate,
-            failure_time=failure_time,
-            heartbeat_interval=heartbeat_interval,
-            failed_link=failed_link_choice,
-            routing_mode=routing_mode,
-        )
-        sim = TrafficSimulator(default_cfg)
-        st.session_state["sim_result"] = sim.run()
-        st.session_state["show_comparison"] = False
+    # Select Link to Disrupt dynamically
+    target_link = st.sidebar.selectbox(
+        "Target Physical Link to Sever",
+        options=all_links,
+        format_func=lambda pair: f"Link ({pair[0]} ── {pair[1]})",
+        index=min(2, len(all_links) - 1),
+        help="Choose any link in the dynamic network to sever during the simulation.",
+    )
 
-    if run_btn:
+    routing_mode = st.sidebar.selectbox(
+        "Control-Plane Operating Mode",
+        options=["self_healing", "static"],
+        format_func=lambda x: "🟢 Self-Healing (Autonomous Dijkstra Reroute)" if x == "self_healing" else "🔴 Static Routing (No Recovery Baseline)",
+        help="Self-healing dynamically updates flow rules. Static leaves stale paths causing drops.",
+    )
+
+    sim_duration = st.sidebar.slider("Simulation Window (Units)", 15.0, 60.0, 30.0, 5.0)
+    packet_rate = st.sidebar.slider("Traffic Generation Rate (pkts/unit)", 1.0, 15.0, 5.0, 1.0)
+    failure_time = st.sidebar.slider("Fault Inception Time (t)", 5.0, sim_duration - 5.0, 10.0, 1.0)
+    heartbeat_interval = st.sidebar.slider("Heartbeat Probe Interval", 0.5, 3.0, 1.0, 0.5)
+
+    st.sidebar.markdown("---")
+    run_sim_btn = st.sidebar.button("🚀 Run Dynamic Simulation", type="primary", use_container_width=True)
+
+    # Simulation Execution in Session State
+    sim_cache_key = f"{topo_family}_{num_switches}_{target_link}_{routing_mode}_{sim_duration}_{packet_rate}_{failure_time}_{heartbeat_interval}"
+
+    if "last_sim_key" not in st.session_state or st.session_state["last_sim_key"] != sim_cache_key or run_sim_btn:
         cfg = SimulationConfig(
             simulation_duration=sim_duration,
             packet_rate=packet_rate,
             failure_time=failure_time,
             heartbeat_interval=heartbeat_interval,
-            failed_link=failed_link_choice,
+            failed_link=target_link,
             routing_mode=routing_mode,
         )
-        sim = TrafficSimulator(cfg)
-        st.session_state["sim_result"] = sim.run()
-        st.session_state["show_comparison"] = False
+        sim = TrafficSimulator(cfg, topology_manager=tm)
+        sim_res = sim.run()
+        st.session_state["sim_res"] = sim_res
+        st.session_state["tm"] = tm
+        st.session_state["last_sim_key"] = sim_cache_key
 
-    if compare_btn:
-        st.session_state["show_comparison"] = True
-
-    # Main Tabs
-    tab_sim, tab_baseline, tab_packets, tab_architecture = st.tabs(
-        ["📊 Simulation & Topology", "⚖️ Baseline Comparison", "📦 Packet Inspector", "📖 Architecture & Concepts"]
-    )
-
-    sim_res = st.session_state["sim_result"]
+    sim_res = st.session_state["sim_res"]
+    tm = st.session_state["tm"]
     metrics = sim_res.summary_metrics
 
-    with tab_sim:
-        # Top KPI Metrics Row
-        col1, col2, col3, col4, col5 = st.columns(5)
-        with col1:
-            st.metric("Packets Sent", metrics["packets_sent"])
-        with col2:
-            st.metric("Packets Delivered", metrics["packets_received"])
-        with col3:
-            st.metric("Packet Delivery Ratio", f"{metrics['pdr_pct']}%")
-        with col4:
-            st.metric("Packet Loss", f"{metrics['packet_loss_pct']}%")
-        with col5:
-            rec_str = f"{metrics['recovery_time']} units" if sim_res.config.routing_mode == "self_healing" else "No Recovery"
-            st.metric("Total Recovery Time", rec_str)
+    # Top KPI Ribbon
+    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+    with kpi1:
+        st.metric("Total Generated", f"{metrics['packets_sent']} pkts")
+    with kpi2:
+        st.metric("Delivered Traffic", f"{metrics['packets_received']} pkts")
+    with kpi3:
+        pdr_val = metrics['pdr_pct']
+        st.metric("Packet Delivery Ratio", f"{pdr_val}%", delta=f"{pdr_val - 50:.1f}% vs baseline")
+    with kpi4:
+        st.metric("Packet Loss", f"{metrics['packet_loss_pct']}%", delta=f"-{70 - metrics['packet_loss_pct']:.1f}% drop" if routing_mode == "self_healing" else "+High Loss", delta_color="inverse")
+    with kpi5:
+        rec_time_str = f"{metrics['recovery_time']} units" if routing_mode == "self_healing" else "No Recovery"
+        st.metric("Restoration Latency", rec_time_str)
 
-        st.markdown("---")
+    # Main Tabs
+    tab_playback, tab_analytics, tab_baseline, tab_logs, tab_packets = st.tabs(
+        [
+            "🎬 Dynamic Topology & Playback",
+            "📈 Traffic Trajectory",
+            "⚖️ Static vs Self-Healing Benchmark",
+            "💻 Controller Event Console",
+            "📦 Packet Telemetry Inspector",
+        ]
+    )
 
-        # Two-Column Layout: Topology Graph vs Event / Path Details
-        t_col1, t_col2 = st.columns([3, 2])
+    with tab_playback:
+        st.markdown("#### ⏱️ Dynamic Simulation Playback & Time-Scrubber")
+        st.caption("Drag the slider to observe how the SDN controller dynamically updates paths, detects failures, and heals the network at any point in simulation time.")
 
-        with t_col1:
-            st.subheader("Network Topology & Active Forwarding Route")
-            active_route_view = st.radio(
-                "Route Highlight View:",
-                options=["Final Installed Route", "Initial Route", "Both Overlaid"],
-                horizontal=True,
-            )
+        # Interactive Time Scrubber Slider
+        max_time = sim_duration
+        current_time_scrub = st.slider(
+            "Simulation Clock (Time Units):",
+            min_value=0.0,
+            max_value=max_time,
+            value=max_time,
+            step=1.0,
+            format="t = %.1f units",
+        )
 
-            highlight_route = (
-                sim_res.final_route if active_route_view == "Final Installed Route" else sim_res.initial_route
-            )
-            failed_link = sim_res.config.failed_link
+        # Find snapshot for current_time_scrub
+        snapshots = sim_res.snapshots
+        curr_snap = None
+        if snapshots:
+            for s in snapshots:
+                if s["time"] <= current_time_scrub:
+                    curr_snap = s
+                else:
+                    break
+        if not curr_snap and snapshots:
+            curr_snap = snapshots[0]
 
+        # Determine route and link states at scrubbed time
+        if curr_snap:
+            display_route = curr_snap["route"]
+            display_phase = curr_snap["phase"]
+            display_label = curr_snap["phase_label"]
+            snap_delivered = curr_snap["delivered"]
+            snap_dropped = curr_snap["dropped"]
+            snap_pdr = curr_snap["pdr"]
+        else:
+            display_route = sim_res.final_route
+            display_phase = "NORMAL"
+            display_label = "🟢 Normal Operational State"
+            snap_delivered = metrics["packets_received"]
+            snap_dropped = metrics["packets_lost"]
+            snap_pdr = metrics["pdr_pct"]
+
+        # Link status at this time
+        is_link_cut_now = current_time_scrub >= failure_time
+        active_failed_link = target_link if is_link_cut_now else None
+
+        # Two-column layout for Graph + Live Diagnostics
+        g_col, d_col = st.columns([3, 2])
+
+        with g_col:
+            title_text = f"Fabric State at t = {current_time_scrub:.1f} ({display_label})"
             topo_fig = create_topology_plotly_fig(
-                topology_manager=TopologyManager(),
-                active_route=highlight_route,
-                failed_link=failed_link,
-                title=f"Topology State: Link {failed_link[0]}-{failed_link[1]} Cut",
+                topology_manager=tm,
+                active_route=display_route,
+                failed_link=active_failed_link,
+                title=title_text,
+                dark_mode=True,
             )
             st.plotly_chart(topo_fig, use_container_width=True)
 
-        with t_col2:
-            st.subheader("Autonomous Recovery Flow")
+        with d_col:
+            st.markdown("##### 📡 Instantaneous Network Diagnostics")
 
-            init_path_str = " → ".join(sim_res.initial_route)
-            final_path_str = " → ".join(sim_res.final_route)
-
-            st.markdown(f"**1. Initial Forwarding Route (t=0.0):**")
-            st.code(init_path_str, language="text")
-
-            st.markdown(f"**2. Disrupted Link at t={sim_res.config.failure_time}:**")
-            st.error(f"Link {failed_link[0]} ─X─ {failed_link[1]} physical failure injected.")
-
-            if sim_res.config.routing_mode == "self_healing":
-                rec = sim_res.recovery_record
-                det_time = rec.get("detection_time", "N/A") if rec else "N/A"
-                det_delay = rec.get("detection_delay", "N/A") if rec else "N/A"
-                reroute_delay = rec.get("reroute_delay", "N/A") if rec else "N/A"
-                tot_rec = rec.get("total_recovery_time", "N/A") if rec else "N/A"
-
-                st.markdown(f"**3. Heartbeat Failure Detection:**")
-                st.info(f"Detected at **t = {det_time}** (Detection Delay = {det_delay} units)")
-
-                st.markdown(f"**4. Self-Healing Alternate Route:**")
-                st.code(final_path_str, language="text")
-                st.success(f"Flow updated (Reroute Delay = {reroute_delay} units | Total Recovery Time = {tot_rec} units)")
+            if display_phase == "NORMAL":
+                st.markdown(f"<span class='status-badge-healthy'>{display_label}</span>", unsafe_allow_html=True)
+            elif display_phase == "FAULT_ACTIVE":
+                st.markdown(f"<span class='status-badge-fault'>{display_label}</span>", unsafe_allow_html=True)
             else:
-                st.warning("⚠️ Static Mode Active: Controller ignored failure. Stale path retained, all subsequent packets targeting broken link dropped.")
+                st.markdown(f"<span class='status-badge-rerouted'>{display_label}</span>", unsafe_allow_html=True)
 
-        # Time-Series Trajectory Section
-        st.subheader("Traffic Trajectory: Throughput & Loss Dynamics")
+            st.markdown("**Installed Forwarding Path:**")
+            path_str = " → ".join(display_route) if display_route else "No Route Installed"
+            st.markdown(f"<div class='route-box'>{path_str}</div>", unsafe_allow_html=True)
+
+            st.markdown(f"**Target Link State ({target_link[0]} ── {target_link[1]}):**")
+            if is_link_cut_now:
+                st.error(f"❌ LINK SEVERED at t = {failure_time:.1f} units")
+            else:
+                st.success(f"✔️ LINK OPERATIONAL (Scheduled cut at t = {failure_time:.1f})")
+
+            st.markdown("**Instantaneous Telemetry at t:**")
+            sub_col1, sub_col2, sub_col3 = st.columns(3)
+            with sub_col1:
+                st.metric("Delivered", f"{snap_delivered} pkts")
+            with sub_col2:
+                st.metric("Dropped", f"{snap_dropped} pkts")
+            with sub_col3:
+                st.metric("Live PDR", f"{snap_pdr}%")
+
+            if routing_mode == "self_healing" and current_time_scrub >= (sim_res.recovery_record.get('reroute_time') or 999):
+                rec = sim_res.recovery_record
+                st.info(f"⚡ Self-Healing Completed in **{rec.get('total_recovery_time', 'N/A')} units** (Detection: {rec.get('detection_delay', 'N/A')} | Reroute: {rec.get('reroute_delay', 'N/A')})")
+
+    with tab_analytics:
+        st.markdown("#### 📈 Continuous Telemetry & Traffic Trajectory")
         det_timestamp = (
             sim_res.recovery_record.get("detection_time")
-            if sim_res.recovery_record and sim_res.config.routing_mode == "self_healing"
+            if sim_res.recovery_record and routing_mode == "self_healing"
             else None
         )
         ts_fig = create_time_series_plotly_fig(
             time_series_df=sim_res.time_series_df,
-            failure_time=sim_res.config.failure_time,
+            failure_time=failure_time,
             detection_time=det_timestamp,
-            title="Delivered vs Dropped Packets Over Simulation Time",
+            title=f"Traffic Throughput & Drop Spikes (Fault Injected at t={failure_time:.1f})",
+            dark_mode=True,
         )
         st.plotly_chart(ts_fig, use_container_width=True)
 
-        # Control Plane Event Log Expander
-        with st.expander("📜 SDN Controller Event Log"):
-            log_df = pd.DataFrame(sim_res.event_log)
-            st.dataframe(log_df, use_container_width=True)
+        # Delay & Throughput Statistics
+        c_an1, c_an2 = st.columns(2)
+        with c_an1:
+            st.markdown("##### End-to-End Latency Profile")
+            st.write(f"- **Mean Latency:** `{metrics['avg_delay']} units`")
+            st.write(f"- **Min Latency (Primary Path):** `{metrics['min_delay']} units`")
+            st.write(f"- **Max Latency (Alternate Path):** `{metrics['max_delay']} units`")
+        with c_an2:
+            st.markdown("##### Effective Bandwidth")
+            st.write(f"- **Delivered Throughput:** `{metrics['throughput_kbps']} kbps`")
+            st.write(f"- **Packet Transfer Rate:** `{metrics['throughput_pps']} pkts/unit`")
 
     with tab_baseline:
-        st.subheader("⚖️ Empirical Baseline Comparison: Static Routing vs Self-Healing SDN")
-        st.markdown(
-            """
-            This experiment validates the core hypothesis of SDN-driven self-healing:
-            - **Static Routing Baseline:** The network cannot adapt without manual intervention; traffic traversing the broken link is dropped continuously.
-            - **Self-Healing SDN:** The controller detects heartbeat timeout, dynamically invalidates stale flow rules, recomputes the optimal alternate path via Dijkstra, and installs new forwarding rules.
-            """
-        )
+        st.markdown("#### ⚖️ Empirical Baseline Comparison: Static Routing vs Self-Healing SDN")
+        st.caption("Validates the core experimental hypothesis by running an identical simulation under Static Routing (no controller recovery) vs. Self-Healing SDN.")
 
-        with st.spinner("Computing comparative benchmark (Static vs Self-Healing)..."):
+        with st.spinner("Generating real-time comparative benchmark..."):
             res_stat, res_sh, comp_df = run_baseline_comparison(
                 simulation_duration=sim_duration,
                 packet_rate=packet_rate,
@@ -267,76 +393,70 @@ def main():
                 save_outputs=False,
             )
 
-        b_col1, b_col2 = st.columns([1, 1])
-        with b_col1:
-            st.markdown("#### Performance Metrics Table")
+        b_c1, b_c2 = st.columns([1, 1])
+        with b_c1:
+            st.markdown("##### Benchmark Metrics Table")
             st.dataframe(comp_df, use_container_width=True)
 
-        with b_col2:
-            st.markdown("#### Graphical Comparison")
+        with b_c2:
+            st.markdown("##### Key Performance Delta")
             m_s = res_stat.summary_metrics
             m_h = res_sh.summary_metrics
 
-            fig_bar = go.Figure(data=[
-                go.Bar(name='Static (No Recovery)', x=['PDR (%)', 'Packet Loss (%)', 'Throughput (kbps)'],
-                       y=[m_s['pdr_pct'], m_s['packet_loss_pct'], m_s['throughput_kbps']], marker_color='#ef4444'),
-                go.Bar(name='Self-Healing SDN', x=['PDR (%)', 'Packet Loss (%)', 'Throughput (kbps)'],
-                       y=[m_h['pdr_pct'], m_h['packet_loss_pct'], m_h['throughput_kbps']], marker_color='#22c55e')
-            ])
-            fig_bar.update_layout(barmode='group', height=360, margin=dict(l=20, r=20, t=30, b=20))
+            fig_bar = go.Figure(
+                data=[
+                    go.Bar(
+                        name="Static (No Recovery)",
+                        x=["PDR (%)", "Packet Loss (%)", "Throughput (kbps)"],
+                        y=[m_s["pdr_pct"], m_s["packet_loss_pct"], m_s["throughput_kbps"]],
+                        marker_color="#ef4444",
+                    ),
+                    go.Bar(
+                        name="Self-Healing SDN",
+                        x=["PDR (%)", "Packet Loss (%)", "Throughput (kbps)"],
+                        y=[m_h["pdr_pct"], m_h["packet_loss_pct"], m_h["throughput_kbps"]],
+                        marker_color="#10b981",
+                    ),
+                ]
+            )
+            fig_bar.update_layout(
+                barmode="group",
+                paper_bgcolor="#0b1120",
+                plot_bgcolor="#0b1120",
+                font=dict(color="#f8fafc"),
+                margin=dict(l=20, r=20, t=30, b=20),
+                height=320,
+            )
             st.plotly_chart(fig_bar, use_container_width=True)
 
+    with tab_logs:
+        st.markdown("#### 💻 SDN Controller Real-Time Event Stream")
+        log_df = pd.DataFrame(sim_res.event_log)
+        if not log_df.empty:
+            st.dataframe(log_df, use_container_width=True, height=360)
+        else:
+            st.info("No controller events recorded.")
+
     with tab_packets:
-        st.subheader("📦 Packet-Level Telemetry Inspector")
+        st.markdown("#### 📦 Packet-Level Telemetry Inspector")
         df_packets = sim_res.packets_df
 
         if not df_packets.empty:
             status_filter = st.multiselect(
-                "Filter by Packet Status:",
+                "Filter Packet Status:",
                 options=df_packets["status"].unique(),
                 default=df_packets["status"].unique(),
             )
             filtered_df = df_packets[df_packets["status"].isin(status_filter)]
-            st.dataframe(filtered_df, use_container_width=True)
+            st.dataframe(filtered_df, use_container_width=True, height=360)
             st.download_button(
-                "📥 Download Packet Telemetry CSV",
+                "📥 Export Telemetry CSV",
                 data=filtered_df.to_csv(index=False),
-                file_name="packet_telemetry.csv",
+                file_name="telemetry_packets.csv",
                 mime="text/csv",
             )
         else:
             st.info("No packet records available.")
-
-    with tab_architecture:
-        st.subheader("📖 System Architecture & Engineering Principles")
-        st.markdown(
-            """
-            ### Technical Positioning
-            This platform is an **SDN control-plane software simulation** implemented in Python using discrete-event modeling.
-            It models the core SDN paradigm:
-            - **Control Plane:** Centralized SDN Controller holding global topology knowledge and executing Dijkstra path computation.
-            - **Data Plane:** Packet forwarding along installed paths with link-level delays and physical failure states.
-            - **Observability:** Heartbeat monitoring for explicit fault detection with measured detection lag.
-            - **Actuation:** Flow table update and dynamic traffic rerouting.
-
-            ### Closed-Loop Self-Healing Cycle
-            ```
-            Physical Fault (t = 10.0)
-                   ↓
-            Heartbeat Timeout (t = 11.0, Detection Delay = 1.0)
-                   ↓
-            Controller Learns of Topology Change
-                   ↓
-            Old Flow Invalidation: H1-S1-S2-S3-H2
-                   ↓
-            Dijkstra Shortest Path on Active Subgraph
-                   ↓
-            Alternate Flow Installed: H1-S1-S4-S5-S3-H2 (t = 11.05)
-                   ↓
-            Data-Plane Traffic Rerouted & Performance Restored
-            ```
-            """
-        )
 
 
 if __name__ == "__main__":

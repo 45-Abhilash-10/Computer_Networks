@@ -75,6 +75,8 @@ def run_baseline_comparison(
     ]
 
     df_comp = pd.DataFrame(metrics_rows)
+    df_comp["Static Baseline"] = df_comp["Static Baseline"].astype(str)
+    df_comp["Self-Healing SDN"] = df_comp["Self-Healing SDN"].astype(str)
 
     if save_outputs:
         # Save CSV
