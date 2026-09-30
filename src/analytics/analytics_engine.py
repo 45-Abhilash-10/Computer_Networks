@@ -302,11 +302,14 @@ def create_noc_topology_fig(
     topology_manager: TopologyManager,
     active_route: Optional[List[str]] = None,
     failed_link: Optional[Tuple[str, str]] = None,
-    height: int = 250,
+    height: int = 240,
+    dark_mode: bool = False,
 ) -> go.Figure:
     """
-    Ultra-compact, high-contrast 2D topology figure specifically optimized
-    for single-screen NOC operations dashboards.
+    Ultra-compact 2D topology figure styled with the user's custom palette:
+    - Primary Active Color: #8A6B9E / #B8A3C7 (Muted Dusty Lilac - Palette Bottom Color)
+    - Fault / Disrupted Color: #E49678 (Warm Terracotta)
+    - Canvas Background: #FDF9F9 (Light) or #16121C (Dark)
     """
     pos = topology_manager.get_node_positions()
     graph = topology_manager.get_graph()
@@ -319,6 +322,26 @@ def create_noc_topology_fig(
 
     failed_pair = tuple(sorted(failed_link)) if failed_link else None
 
+    # Palette tokens
+    if dark_mode:
+        bg_color = "#16121c"
+        inactive_color = "rgba(115, 96, 124, 0.45)"
+        active_color = "#b8a3c7"      # The bottom swatch (Lilac)
+        failed_color = "#e49678"      # Terracotta
+        text_color = "#fbefef"
+        switch_fill = "#231c2c"
+        switch_border = "#b8a3c7"
+        host_color = "#a084b3"
+    else:
+        bg_color = "#ffffff"
+        inactive_color = "#dccad0"
+        active_color = "#8a6b9e"      # Deepened bottom swatch for crisp contrast
+        failed_color = "#e49678"      # Terracotta
+        text_color = "#2e2137"
+        switch_fill = "#8a6b9e"
+        switch_border = "#745687"
+        host_color = "#685f42"       # Olive brown from swatch 1
+
     fig = go.Figure()
 
     # Draw Edges
@@ -329,17 +352,17 @@ def create_noc_topology_fig(
         status = data.get("status", "UP")
 
         if edge_pair == failed_pair or status == "DOWN":
-            line_color = "#ef4444"  # Red
+            line_color = failed_color
             line_width = 3.5
             line_dash = "dash"
             hover_text = f"<b>CRITICAL FAULT: {u} ──X── {v}</b><br>Status: SEVERED (DOWN)"
         elif edge_pair in route_edges:
-            line_color = "#10b981"  # Emerald Green
+            line_color = active_color
             line_width = 4.5
             line_dash = "solid"
             hover_text = f"<b>ACTIVE PATH: {u} ──> {v}</b><br>Status: FORWARDING"
         else:
-            line_color = "#334155"  # Slate Gray
+            line_color = inactive_color
             line_width = 2.0
             line_dash = "solid"
             hover_text = f"Link: {u} ── {v}<br>Status: {status}"
@@ -374,11 +397,11 @@ def create_noc_topology_fig(
             switch_y.append(y)
             switch_names.append(node)
             if is_in_route:
-                switch_colors.append("#1e293b")
-                switch_borders.append("#10b981")  # Emerald border
+                switch_colors.append(active_color)
+                switch_borders.append("#593f6b" if not dark_mode else "#fbefef")
             else:
-                switch_colors.append("#0f172a")
-                switch_borders.append("#475569")  # Slate border
+                switch_colors.append("#b8a3c7" if not dark_mode else "#2e2539")
+                switch_borders.append("#8a6b9e" if not dark_mode else "#554366")
 
     # Switches (Circles)
     fig.add_trace(
@@ -394,7 +417,7 @@ def create_noc_topology_fig(
             ),
             text=switch_names,
             textposition="middle center",
-            textfont=dict(color="#f8fafc", size=11, family="JetBrains Mono, monospace"),
+            textfont=dict(color="#ffffff", size=11, family="JetBrains Mono, monospace", weight=700),
             hoverinfo="text",
             hovertext=[f"SDN Switch: {n}" for n in switch_names],
             showlegend=False,
@@ -410,12 +433,12 @@ def create_noc_topology_fig(
             marker=dict(
                 symbol="square",
                 size=28,
-                color="#0369a1",
-                line=dict(color="#38bdf8", width=2),
+                color=host_color,
+                line=dict(color="#ffffff", width=2),
             ),
             text=host_names,
             textposition="middle center",
-            textfont=dict(color="#ffffff", size=11, family="JetBrains Mono, monospace"),
+            textfont=dict(color="#ffffff", size=11, family="JetBrains Mono, monospace", weight=700),
             hoverinfo="text",
             hovertext=[f"Host: {n}" for n in host_names],
             showlegend=False,
@@ -433,10 +456,10 @@ def create_noc_topology_fig(
                     x=[mx],
                     y=[my],
                     mode="markers+text",
-                    marker=dict(symbol="x", size=18, color="#ef4444", line=dict(width=3, color="#ffffff")),
+                    marker=dict(symbol="x", size=18, color=failed_color, line=dict(width=3, color="#ffffff")),
                     text=["FAULT"],
                     textposition="top center",
-                    textfont=dict(color="#ef4444", size=9, family="Inter, sans-serif"),
+                    textfont=dict(color=failed_color, size=9, family="Inter, sans-serif", weight=700),
                     hoverinfo="text",
                     hovertext=f"Physical Fault: {u} ──X── {v}",
                     showlegend=False,
@@ -448,8 +471,8 @@ def create_noc_topology_fig(
         hovermode="closest",
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        paper_bgcolor="#0f172a",
-        plot_bgcolor="#0f172a",
+        paper_bgcolor=bg_color,
+        plot_bgcolor=bg_color,
         margin=dict(l=10, r=10, t=10, b=10),
         height=height,
     )
@@ -461,36 +484,53 @@ def create_noc_performance_fig(
     failure_time: float,
     recovery_time: Optional[float] = None,
     height: int = 125,
+    dark_mode: bool = False,
 ) -> go.Figure:
     """
-    Compact multi-line/area timeline chart showing throughput/PDR across
-    Before, Failure, and Recovery intervals.
+    Compact multi-line/area timeline chart styled with the user's custom palette.
     """
     fig = go.Figure()
 
+    if dark_mode:
+        bg_color = "#16121c"
+        grid_color = "rgba(75, 60, 85, 0.3)"
+        deliv_color = "#b8a3c7"      # Bottom color
+        deliv_fill = "rgba(184, 163, 199, 0.25)"
+        drop_color = "#e49678"       # Terracotta
+        drop_fill = "rgba(228, 150, 120, 0.3)"
+        text_color = "#9e8ba8"
+    else:
+        bg_color = "#ffffff"
+        grid_color = "rgba(220, 202, 208, 0.5)"
+        deliv_color = "#8a6b9e"      # Bottom color (contrast)
+        deliv_fill = "rgba(184, 163, 199, 0.35)"
+        drop_color = "#e49678"       # Terracotta
+        drop_fill = "rgba(228, 150, 120, 0.3)"
+        text_color = "#766482"
+
     if not time_series_df.empty:
-        # Delivered Area (Green)
+        # Delivered Area (The Bottom Palette Color)
         fig.add_trace(
             go.Scatter(
                 x=time_series_df["time"],
                 y=time_series_df["delivered"],
                 mode="lines",
                 name="Delivered",
-                line=dict(color="#10b981", width=2),
+                line=dict(color=deliv_color, width=2.5),
                 fill="tozeroy",
-                fillcolor="rgba(16, 185, 129, 0.15)",
+                fillcolor=deliv_fill,
             )
         )
-        # Dropped Area (Red)
+        # Dropped Area (Terracotta)
         fig.add_trace(
             go.Scatter(
                 x=time_series_df["time"],
                 y=time_series_df["dropped"],
                 mode="lines",
                 name="Dropped",
-                line=dict(color="#ef4444", width=2),
+                line=dict(color=drop_color, width=2),
                 fill="tozeroy",
-                fillcolor="rgba(239, 68, 68, 0.25)",
+                fillcolor=drop_fill,
             )
         )
 
@@ -499,10 +539,10 @@ def create_noc_performance_fig(
         x=failure_time,
         line_width=1.5,
         line_dash="dash",
-        line_color="#ef4444",
+        line_color=drop_color,
         annotation_text="FAULT",
         annotation_position="top left",
-        annotation_font=dict(color="#ef4444", size=9),
+        annotation_font=dict(color=drop_color, size=9),
     )
 
     if recovery_time is not None:
@@ -510,10 +550,10 @@ def create_noc_performance_fig(
             x=recovery_time,
             line_width=1.5,
             line_dash="dash",
-            line_color="#10b981",
+            line_color=deliv_color,
             annotation_text="HEALED",
             annotation_position="top right",
-            annotation_font=dict(color="#10b981", size=9),
+            annotation_font=dict(color=deliv_color, size=9),
         )
 
     fig.update_layout(
@@ -524,24 +564,24 @@ def create_noc_performance_fig(
             y=1.02,
             xanchor="right",
             x=1,
-            font=dict(color="#94a3b8", size=9),
+            font=dict(color=text_color, size=9),
         ),
         xaxis=dict(
             title="",
             showgrid=True,
-            gridcolor="rgba(51, 65, 85, 0.3)",
-            color="#64748b",
+            gridcolor=grid_color,
+            color=text_color,
             tickfont=dict(size=9),
         ),
         yaxis=dict(
             title="",
             showgrid=True,
-            gridcolor="rgba(51, 65, 85, 0.3)",
-            color="#64748b",
+            gridcolor=grid_color,
+            color=text_color,
             tickfont=dict(size=9),
         ),
-        paper_bgcolor="#0f172a",
-        plot_bgcolor="#0f172a",
+        paper_bgcolor=bg_color,
+        plot_bgcolor=bg_color,
         margin=dict(l=25, r=10, t=10, b=20),
         height=height,
     )
